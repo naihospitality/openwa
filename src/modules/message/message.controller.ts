@@ -279,6 +279,27 @@ export class MessageController {
     return { success: true };
   }
 
+  // ========== Read Receipts ==========
+
+  @Post('mark-read')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mark a chat as read on WhatsApp (send blue ticks)',
+    description:
+      "Calls whatsapp-web.js Chat.sendSeen() for the given chatId. Triggers blue ticks on the recipient's device only if the line owner has 'Read receipts' enabled in WhatsApp app settings. Used by the Intranet's per-line 'Send read receipts' toggle — caller decides whether to invoke.",
+  })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mark-read submitted to WhatsApp. ok=true means the engine acknowledged.',
+  })
+  @ApiResponse({ status: 400, description: 'Session not active or invalid chatId' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  async markRead(@Param('sessionId') sessionId: string, @Body() dto: { chatId: string }): Promise<{ ok: boolean }> {
+    return this.messageService.markChatRead(sessionId, dto.chatId);
+  }
+
   // ========== Bulk Messaging ==========
 
   @Post('send-bulk')

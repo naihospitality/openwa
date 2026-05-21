@@ -260,6 +260,13 @@ export interface IWhatsAppEngine {
   // Message Operations
   deleteMessage(chatId: string, messageId: string, forEveryone?: boolean): Promise<void>;
 
+  // Read Receipts — marks all messages in the chat as seen on the WhatsApp side,
+  // which triggers the blue ticks (✓✓) on the recipient device when the line owner
+  // has "Read receipts" enabled in WhatsApp settings. The downstream caller decides
+  // whether to invoke this (e.g. per-line "Send read receipts" toggle in Intranet).
+  // Returns true if WhatsApp acknowledged the seen action.
+  markChatRead(chatId: string): Promise<boolean>;
+
   // Contact Extended Operations
   getProfilePicture(contactId: string): Promise<string | null>;
   blockContact(contactId: string): Promise<void>;

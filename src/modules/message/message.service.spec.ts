@@ -24,6 +24,7 @@ function createMockEngine() {
     reactToMessage: jest.fn().mockResolvedValue(undefined),
     getMessageReactions: jest.fn().mockResolvedValue([]),
     deleteMessage: jest.fn().mockResolvedValue(undefined),
+    markChatRead: jest.fn().mockResolvedValue(true),
   };
 }
 
@@ -363,6 +364,20 @@ describe('MessageService', () => {
       });
 
       expect(mockEngine.deleteMessage).toHaveBeenCalledWith('test@c.us', 'wa-msg-1', false);
+    });
+  });
+
+  describe('markChatRead', () => {
+    it('should call engine.markChatRead and return ok=true on success', async () => {
+      const result = await service.markChatRead('sess-1', 'test@c.us');
+      expect(mockEngine.markChatRead).toHaveBeenCalledWith('test@c.us');
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('should return ok=false when engine reports failure', async () => {
+      mockEngine.markChatRead.mockResolvedValueOnce(false);
+      const result = await service.markChatRead('sess-1', 'test@c.us');
+      expect(result).toEqual({ ok: false });
     });
   });
 });

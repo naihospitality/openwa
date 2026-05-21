@@ -804,6 +804,17 @@ export class WhatsAppWebJsAdapter extends EventEmitter implements IWhatsAppEngin
     this.logger.log(`Deleted message ${messageId} from chat ${chatId} (forEveryone: ${forEveryone})`);
   }
 
+  // Mark Chat as Read (send blue ticks to recipient when line owner has read
+  // receipts enabled in WhatsApp settings). Used by Intranet's "send read
+  // receipts" per-line toggle — staff opening an Internal Chats conversation
+  // optionally propagates the seen state to WhatsApp.
+  async markChatRead(chatId: string): Promise<boolean> {
+    this.ensureReady();
+    const ok = await this.client!.sendSeen(chatId);
+    this.logger.log(`Marked chat ${chatId} as seen (result: ${ok})`);
+    return Boolean(ok);
+  }
+
   // Get Profile Picture
   async getProfilePicture(contactId: string): Promise<string | null> {
     this.ensureReady();
