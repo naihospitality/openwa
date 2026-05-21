@@ -466,6 +466,17 @@ export class MessageService {
     await engine.deleteMessage(dto.chatId, dto.messageId, dto.forEveryone ?? true);
   }
 
+  // ========== Read Receipts ==========
+  // Marks a WhatsApp chat as read from the line owner's side. When the line owner
+  // has "Read receipts" enabled in WhatsApp app settings, this triggers the blue
+  // ticks (✓✓) for the recipient. Downstream callers (e.g. Intranet "Send read
+  // receipts" per-line toggle) decide when to invoke this.
+  async markChatRead(sessionId: string, chatId: string): Promise<{ ok: boolean }> {
+    const engine = this.getEngine(sessionId);
+    const ok = await engine.markChatRead(chatId);
+    return { ok };
+  }
+
   private getEngine(sessionId: string) {
     const engine = this.sessionService.getEngine(sessionId);
     if (!engine) {
