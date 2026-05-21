@@ -283,32 +283,34 @@ export class SessionService implements OnModuleDestroy, OnModuleInit {
         });
       },
       onMessage: (message): void => {
-        this.logger.debug(`Message received from ${message.from}`, {
+        // NaiBnB patch: split inbound vs outbound based on fromMe. Inbound
+        // goes to message.received (existing behaviour); outbound (sent from
+        // the phone via WhatsApp multi-device sync) goes to message.sent so
+        // downstream listeners can render agent replies that bypassed the API.
+        const isOutbound = !!message.fromMe;
+        const eventName  = isOutbound ? 'message.sent' : 'message.received';
+        const hookName   = isOutbound ? 'message:sent' : 'message:received';
+
+        this.logger.debug(`${isOutbound ? 'Outbound from phone' : 'Inbound'} message ${message.id}`, {
           sessionId: id,
           messageId: message.id,
           from: message.from,
-          action: 'message_received',
+          to: message.to,
+          action: isOutbound ? 'message_sent_from_phone' : 'message_received',
         });
-        // Update last active timestamp
         void this.sessionRepository.update(id, { lastActiveAt: new Date() });
-        // Convert IncomingMessage to plain object for dispatch
         const messageData = { ...message };
 
-        // Execute hook for message received - plugins can modify or stop processing
         void this.hookManager
-          .execute('message:received', messageData, {
+          .execute(hookName, messageData, {
             sessionId: id,
             source: 'Engine',
           })
           .then(({ continue: shouldContinue, data: finalMessage }) => {
             if (!shouldContinue) {
-              // Plugin stopped processing (e.g., auto-reply handled it)
               return;
             }
-
-            // Dispatch to webhooks with potentially modified message
-            void this.webhookService.dispatch(id, 'message.received', finalMessage as Record<string, unknown>);
-            // Emit real-time event to WebSocket clients
+            void this.webhookService.dispatch(id, eventName, finalMessage as Record<string, unknown>);
             this.eventsGateway.emitMessage(id, finalMessage as Record<string, unknown>);
           });
       },

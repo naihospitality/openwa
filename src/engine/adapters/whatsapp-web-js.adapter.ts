@@ -140,22 +140,28 @@ export class WhatsAppWebJsAdapter extends EventEmitter implements IWhatsAppEngin
       }
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    this.client.on('message', async msg => {
+    // Shared handler — covers both inbound (`message`, fromMe=false) and
+    // outbound-from-phone (`message_create`, fromMe=true). whatsapp-web.js
+    // fires `message_create` for ALL messages (both directions), so we filter
+    // to fromMe=true there to avoid double-firing the inbound path.
+    //
+    // NaiBnB patch: hook message_create so messages sent from the linked
+    // phone surface in our Inbox as agent replies. Without this hook,
+    // anything Sam types on his phone is invisible to the Lines integration.
+    const handleMessage = async (msg: any): Promise<void> => {
       try {
         const incomingMessage: IncomingMessage = {
           id: msg.id._serialized,
           from: msg.from,
           to: msg.to,
-          chatId: msg.from,
+          chatId: msg.fromMe ? msg.to : msg.from,
           body: msg.body,
           type: msg.type,
           timestamp: msg.timestamp,
           fromMe: msg.fromMe,
-          isGroup: msg.from.endsWith('@g.us'),
+          isGroup: (msg.fromMe ? msg.to : msg.from).endsWith('@g.us'),
         };
 
-        // Handle media
         if (msg.hasMedia) {
           try {
             const media = await msg.downloadMedia();
@@ -171,7 +177,6 @@ export class WhatsAppWebJsAdapter extends EventEmitter implements IWhatsAppEngin
           }
         }
 
-        // Handle quoted message
         if (msg.hasQuotedMsg) {
           try {
             const quoted = await msg.getQuotedMessage();
@@ -186,8 +191,20 @@ export class WhatsAppWebJsAdapter extends EventEmitter implements IWhatsAppEngin
 
         this.callbacks.onMessage?.(incomingMessage);
       } catch (error) {
-        this.logger.error('Error processing incoming message', String(error));
+        this.logger.error('Error processing message', String(error));
       }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    this.client.on('message', async msg => {
+      if (msg.fromMe) return; // outgoing path handled by message_create below
+      await handleMessage(msg);
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    this.client.on('message_create', async msg => {
+      if (!msg.fromMe) return; // inbound covered by 'message' above
+      await handleMessage(msg);
     });
 
     this.client.on('message_ack', (msg, ack) => {
